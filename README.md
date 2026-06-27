@@ -24,12 +24,11 @@ Agents only make **outbound** calls to the coordinator (register → poll job �
 report metrics), so they work behind NAT/firewalls. Total offered load ≈
 per-agent settings × number of agents.
 
-### Run an agent on each load machine
+### Install and run an agent on each load machine
 
 ```bash
-./agent -coordinator http://CONTROL_HOST:8080 \
-  -agent-token SOME_LONG_SHARED_SECRET \
-  -i-am-authorized
+curl -fsSL https://github.com/efinskiy/remnawave-sub-loadtest-agent/raw/refs/heads/main/scripts/agent-bootstrap.sh \
+  | COORDINATOR=https://control.example.com AGENT_TOKEN=SOME_LONG_SHARED_SECRET sudo -E bash
 ```
 
 Start as many as you like; each registers automatically and appears in the
