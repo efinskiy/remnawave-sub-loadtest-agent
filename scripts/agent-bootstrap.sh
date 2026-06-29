@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 set -euo pipefail
 
 AGENT_URL="${AGENT_URL:-https://github.com/efinskiy/remnawave-sub-loadtest-agent/raw/refs/heads/main/dist/agent}"
@@ -9,6 +8,8 @@ ENV_FILE="/etc/${SERVICE}.env"
 
 COORDINATOR="${COORDINATOR:?set COORDINATOR=https://control.example.com}"
 AGENT_TOKEN="${AGENT_TOKEN:?set AGENT_TOKEN=your-shared-secret}"
+
+BINDIR="$(dirname "$DEST")"
 
 SUDO=""
 [ "$(id -u)" -ne 0 ] && SUDO="sudo"
@@ -29,10 +30,15 @@ if command -v systemctl >/dev/null 2>&1; then
   $SUDO tee "$ENV_FILE" >/dev/null <<ENV
 COORDINATOR=$COORDINATOR
 AGENT_TOKEN=$AGENT_TOKEN
+AGENT_URL=$AGENT_URL
 ENV
   $SUDO chmod 600 "$ENV_FILE"
 
   echo "==> installing systemd service: $SERVICE"
+  # NOTE: runs as root and grants write to $BINDIR so the agent can self-update
+  # (replace its own binary) when the coordinator reports a newer version.
+  # DynamicUser is intentionally NOT used — a transient user cannot own/replace
+  # the persistent binary file.
   $SUDO tee "/etc/systemd/system/${SERVICE}.service" >/dev/null <<UNIT
 [Unit]
 Description=Remnawave sub load-test agent
@@ -41,12 +47,12 @@ Wants=network-online.target
 
 [Service]
 EnvironmentFile=$ENV_FILE
-ExecStart=$DEST -coordinator \${COORDINATOR} -agent-token \${AGENT_TOKEN} -i-am-authorized
+ExecStart=$DEST -coordinator \${COORDINATOR} -agent-token \${AGENT_TOKEN} -update-url \${AGENT_URL} -i-am-authorized
 Restart=always
 RestartSec=3
-DynamicUser=yes
 NoNewPrivileges=yes
 ProtectSystem=strict
+ReadWritePaths=$BINDIR
 ProtectHome=yes
 
 [Install]
